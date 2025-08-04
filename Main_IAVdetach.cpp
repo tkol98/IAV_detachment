@@ -31,44 +31,41 @@
 
 // ------------------------------------------------------------------------------------------------------------------
 // -- SYSTEM PARAMETERS
-const double Taille_Systeme= 1000.0;						// nm, system size, should be increased soon
+const double Taille_Systeme= 1000.0;	// nm, system size, should be increased soon
 const double roh_SA= 0.03; 				// /(nm^2)
-//int N_R= 200000;		// number of receptors
+//int N_R= 200000;						// number of receptors, => determined by density roh_SA
+const int N_R= roh_SA * Taille_Systeme * Taille_Systeme;		// number of receptors
 
 // -- PARTICLE PARAMETERS
-const double L= 300.0;					// nm, length of virus
-//double diameter= 120.0; 	// nm, diameter of virus
-const double r_sph= 60.0;	 			// nm, radius of spherical virus
+const double L= 300.0;					// nm, length of virus (for non-spherical)
+//const double diameter= 120.0; 			// nm, diameter of virus
+constexpr double r_sph= 60.0;	 				// nm, radius of spherical virus
 // INTERACTIONS:
-const double k_on= 0.56 * 1e3;			//1/s
-const double k_off= 9. * 1e3;				//25.0;	//1/s
-//const double k_d= 2.0 * 1e3;			//0.56;	// 1/s
-double k_d;	//1/s
+constexpr double k_on= 0.56 * 1e3;				// 1/s, binding rate HA
+constexpr double k_off= 9. * 1e3;				// 1/s, unbinding rate HA
+//constexpr double k_d= 2.0 * 1e3;				// 1/s, NA cleaving rate
+double k_d;	//1/s, NA cleaving rate,  for external input
 
 // -- SIMULATION PARAMETERS
-const double D= 7.5; 						// nm, maximal interaction distance (λ)
-const double R_Verlet= 10.0; 			// nm, verlet radi
-const double R_close= 1.5* r_sph; 	// 80; // nm, Radius of the circle containing all the "close" receptors
+constexpr double D= 7.5; 						// nm, maximal interaction distance (λ)
+constexpr double R_Verlet= 10.0; 				// nm, verlet radius
+constexpr double R_close= 1.5* r_sph; 			// nm, Radius of the circle containing all the "close" receptors
 
-const double DT= 1.0 * 1e-6;									// seconds -> 1 µs, time steps
-const int N_dT= 25000;			//20000		//5 //100001 //500000 //nb de steps
+constexpr double DT= 1.0 * 1e-6;				// seconds -> 1 µs, time step size
+constexpr int N_dT= 25000;						// number of time steps
 
 // -- DIFFUSION PARAMETERS
-//const double D_receptor= 10 * k_d/ (0.5*roh_SA);			// (nm^2)/s
-const double D_receptor= 373333.;						// (nm^2)/s,
-const double D_sphere= 373333.;							// (nm^2)/s, diffusion constant D* of spherical particle	
-const double D_r= (3./4.) * D_sphere/(r_sph*r_sph);	// (nm^2)/s,
-const double DT_Brown= 1.0*pow(10,-8);					// s
-const int N_Brown= int(DT/DT_Brown);
-
-// ------------------------------------------------------------------------------------------------------------------
+constexpr double D_receptor= 373333.;						// (nm^2)/s,
+constexpr double D_sphere= 373333.;							// (nm^2)/s, diffusion constant D* of spherical particle	
+constexpr double D_r= (3./4.) * D_sphere/(r_sph*r_sph);		// (rad^2)/s, rotational diffusion constant
+constexpr double DT_Brown= 1.0 * 1e-8;					// s, step size of Brownian diffusion
+const int N_Brown= int(DT/DT_Brown);					// number of Brownian steps between reactions
+// ---------------
 int rejections=0;
 int total_tests=0;
+// ------------------------------------------------------------------------------------------------------------------
 
-int N_R= roh_SA * Taille_Systeme * Taille_Systeme;
-
-
-// HELPER FUNCTIONS
+// ---------------- HELPER FUNCTIONS -------------------------------
 bool isodd(int num) 
 {// Verifies whether a number is odd
 	if(num % 2 == 0)
@@ -80,7 +77,6 @@ bool isodd(int num)
 double distance2(std::vector<double> r1,std::vector<double> r2)
 {// squared distance between two vectors 
 	double dist2;
-
 
 	dist2=pow((r1[0]-r2[0]),2)+pow((r1[1]-r2[1]),2);
 
@@ -155,7 +151,6 @@ double Get_time_reaction(double a_tot, long *idum)
     return t;
 }
 
-
 int Cell_to_Index(int N_x, int N_y, int ix, int iy) 
 {//gets cell coordinates as input and returns cell index
 	int ixp;
@@ -202,7 +197,7 @@ std::vector<int> Index_to_Cell(int N_x, int N_y, int nc)
 	return ixy;
 }
 
-int Get_Id(std::vector<int> L_R_line, int i) //donne la position du rÃ©cepteur i dans le vecteur L_R[alpha] (alpha in [0,N_L-1], i in [1,N_R])
+int Get_Id(std::vector<int> L_R_line, int i)
 {// find the receptor "i" in the Ligand list "L_R_line"/get the corresponding index "id"
     int id = 1;
     for(int w = 0, end= L_R_line.size(); w < end; w++)
@@ -216,7 +211,7 @@ int Get_Id(std::vector<int> L_R_line, int i) //donne la position du rÃ©cepteur
             id += 1;   
         }
     }
-    return -1; //si erreur
+    return -1; // if the receptor is not found, return -1
 }
 
 std::vector<double> get_position_linked_ligand(std::vector<double> *X_l_x, std::vector<double> *X_l_y, std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, std::vector<double> *X_CM_theta, std::vector<int> *L_to_R, int receptor, double theta_mod)
@@ -233,7 +228,6 @@ std::vector<double> get_position_linked_ligand(std::vector<double> *X_l_x, std::
 	{
 		if(L_to_R->at(j) == receptor)
 			ligand = j + 1;
-			// no break? two ligands bind to one receptor?
 	}
 
 	if(ligand == -1)
@@ -253,7 +247,7 @@ std::vector<double> get_position_linked_ligand(std::vector<double> *X_l_x, std::
 }
 
 std::vector<double> get_new_position_linked_ligand(std::vector<double> *X_l_x, std::vector<double> *X_l_y, std::vector<double> r_trial, std::vector<double> *X_CM_theta, std::vector<int> *L_to_R, int receptor)
-{/* (Really Useful?)Returns the new position (in the Labframe of reference) of the ligand which is bound to
+{/* Returns the new position (in the Labframe of reference) of the ligand which is bound to
 	* the given (index) receptor "receptor", meaning that we add the given diffusion vector r_trial
 	* to the coords. 
 	* If no bound ligand is found, return coords of r_trial and print a warning.
@@ -449,7 +443,8 @@ void initialize_sphericalIAV(std::vector<double> *X_l_x, std::vector<double> *X_
 }
 
 void initialize_IAV(std::vector<double> *X_l_x, std::vector<double> *X_l_y, std::vector<int> *T_l, std::vector<int> *L_to_R, long *idum)
-{/* 9 columns (bottom to top) of ligands on the virium:  (D=λ)
+{/* Initializes a triangular ligand grid on a bacillaform virium.
+	 * 9 columns (bottom to top) of ligands on the virium:  (D=λ)
 	 * y0 | y1 | y2 | y1 | y2 | y1 | y2 | y1 | y0
 	 * y0 on the edges a bit shorter, then a grid of y1 and y2 with offset of sqrt(3)D
 	 * x_coords from -D to +D
@@ -853,7 +848,7 @@ void Initialize_Affinity(MATRIX_DOUBLE *a, MATRIX_INT *L_R, std::vector<double> 
 }
 
 MATRIX_INT Set_Neigh(int N_Cell, int N_x, int N_y) 
-{// creates matrix where every cell gets its 8 neighbour indeces assigned 
+{// creates matrix where every cell gets its 8 neighbour indeces assigned (Neighbour-List)
 	int NNeigh = 9;
 	std::vector<int> ixy(2);
 
@@ -933,7 +928,7 @@ MATRIX_INT Init_CellLists(double R_Cell, int N_Cell, int N_part, int N_x, int N_
 	return v;
 }
 
-// AFFINITIES:
+// ----------------------------------- AFFINITIES: ------------------------------------------------
 std::vector<double> Get_a_X_tot(MATRIX_DOUBLE *a_X, int N_L)  
 {/* Creating a flat vector a which lists for each ligand the total affinity/sum
 	* and leads with the total sum of these sums "a_X_tot"
@@ -963,10 +958,6 @@ std::vector<double> Get_a_tot(std::vector<double> *a_d_tot, std::vector<double> 
 	std::vector<double> a;
 	a.clear();
 
-// epsilon: in case something goes wrong (in conversion) with the 0s?
-//			Since a_d always a multiple of k
-
-// why summing up? why not taking a_d_tot->at(0) which should already be the sum?
 	for (int i = 0; i < N_L; ++i)
 	{
 		a_d += a_d_tot->at(i+1);
@@ -979,7 +970,7 @@ std::vector<double> Get_a_tot(std::vector<double> *a_d_tot, std::vector<double> 
 	for (int j = 0; j < N_L; ++j)
 	{
 		a_on += a_on_tot->at(j+1);
-		if(a_on < epsilon) //Ã  remplacer par k_on quand on remet k_on !=0
+		if(a_on < epsilon)
 		{
 		    a_on = 0.0;
 		}
@@ -1003,9 +994,7 @@ std::vector<double> Get_a_tot(std::vector<double> *a_d_tot, std::vector<double> 
 	return a;
 }
 
-
-
-//______________________________________________________________________________________________________________________________
+// -----------------------------------------------------------------------------------------------------------------------------
 // CHECK BREAKAGE
 bool check_breakage(std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, std::vector<double> *X_CM_theta, std::vector<double> *X_l_x, std::vector<double> *X_l_y, std::vector<double> *X_r_x, std::vector<double> *X_r_y, std::vector<int> *T_l, std::vector<int> *L_to_R, double DX, double DY, double DTHETA, bool verbose= true)
 {/* Verifies that the diffusion does not break a bridge (looks at all bridges) .
@@ -1052,9 +1041,7 @@ bool check_breakage(std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, st
 
 
 bool check_breakage_receptors(std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, std::vector<double> *X_CM_theta, std::vector<double> *X_l_x, std::vector<double> *X_l_y, double r_x, double r_y, std::vector<int> *T_l, std::vector<int> *L_to_R, std::vector<int> *list_bridged_receptors, double DX, double DY, int rec)
-{//	(used in diffusion_receptors), not examined closely yet
-	//vÃ©rifie si la diffusion  des recepteurs ne brise pas un pont
-	//std::cout << "start check bk rec" << rec << '\n';
+{//	
 	bool bk_rec;
 	int receptor = 0;
     double theta;
@@ -1064,14 +1051,6 @@ bool check_breakage_receptors(std::vector<double> *X_CM_x, std::vector<double> *
     
     theta = X_CM_theta->at((X_CM_theta->size()) - 1);
 	//std::cout << "overextended bridges : ";
-    /*std::cout << "L_to_R:";
-	for(int j = 0; j < L_to_R->size(); j++)
-	{
-
-			std::cout << L_to_R->at(j) << ' ';
-		
-	}
-	std::cout << '\n';*/
 
 	while(receptor != rec + 1)
 	{
@@ -1087,20 +1066,16 @@ bool check_breakage_receptors(std::vector<double> *X_CM_x, std::vector<double> *
 
     x = (X_l_x->at(i))*cos(theta) - (X_l_y->at(i))*sin(theta) + X_CM_x->at((X_CM_x->size()) -1) ;
     y = (X_l_x->at(i))*sin(theta) + (X_l_y->at(i))*cos(theta) + X_CM_y->at((X_CM_y->size()) -1) ;
-	//std::cout << "before if: " << pow(x - (r_x + DX),2) + pow(y - (r_y + DY),2) << " " << D*D << " ----- receptor: " << receptor << '\n';
-    
     
 	if (pow(x - (r_x + DX),2) + pow(y - (r_y + DY),2) > D*D)
 	{
-		//std::cout << "in if: " << pow(x - (r_x + DX),2) + pow(y - (r_y + DY),2) << " " << D*D << "\n";
 		bk_rec = true;
 	}
 
-	//std::cout << "end check bk rec: " << '\n';	
 	return bk_rec;
 }
 
-//______________________________________________________________________________________________________________________________
+// -----------------------------------------------------------------------------------------------------------------------------
 // REACTIONS:
 int Choose(std::vector<double> V, long *g) 
 {/* Returns an int i which defines either the type of reaction (1-3) or the index of the reacting ligand/receptor 
@@ -1149,10 +1124,10 @@ void Make_reaction(MATRIX_DOUBLE *a_d, MATRIX_DOUBLE *a_on, MATRIX_DOUBLE *a_off
 		(a_d->at(lig-1))[0] -= (a_d->at(lig-1))[ir]; // subtract the affinity of this reaction from the sum
 		(a_d->at(lig-1))[ir] = 0;					// remove affinity to the same reaction again
 
-// remove the receptor from the affinities of all ligands in verlet range
+		// remove the receptor from the affinities of all ligands in verlet range
 		for (int j = 1, end= R_L[rec-1].size(); j < end; j++) 
 		{
-// get Ligand Labframe coords.
+			// get Ligand Labframe coords.
 			theta = X_CM_theta->at((X_CM_theta->size()) - 1);
 		    x = (X_l_x->at(R_L[rec-1][j] - 1))*cos(theta) - (X_l_y->at(R_L[rec-1][j] - 1))*sin(theta) + X_CM_x->at(X_CM_x->size() - 1);
 			y = (X_l_x->at(R_L[rec-1][j] - 1))*sin(theta) + (X_l_y->at(R_L[rec-1][j] - 1))*cos(theta) + X_CM_y->at(X_CM_y->size() - 1);
@@ -1203,7 +1178,6 @@ void Make_reaction(MATRIX_DOUBLE *a_d, MATRIX_DOUBLE *a_on, MATRIX_DOUBLE *a_off
 					(a_on->at(R_L[rec-1][k] - 1))[0] -= (a_on->at(R_L[rec-1][k] - 1))[ir2];
 					(a_on->at(R_L[rec-1][k] - 1))[ir2] = 0.0;				
 				}
-// where is change in a_off? (look into biology again)
 				else if (T_l->at(R_L[rec-1][k] - 1) == 0)		// if Ligand is NA, deactivate receptor for a_d
 				{
 					(a_d->at(R_L[rec-1][k] - 1))[0] -= (a_d->at(R_L[rec-1][k] - 1))[ir2];
@@ -1211,17 +1185,17 @@ void Make_reaction(MATRIX_DOUBLE *a_d, MATRIX_DOUBLE *a_on, MATRIX_DOUBLE *a_off
 				}
 			}
 		}
-// adjust affinities between bound ligand and all other receptors -> 0.0
+		// adjust affinities between bound ligand and all other receptors -> 0.0
 		for (int k = 0, end= (a_on->at(lig-1)).size(); k < end; k++)
 		{
 		    a_on->at(lig-1).at(k) = 0.0;
 		}
-// list them as bridges
+		// list them as bridges
 		T_l->at(lig - 1) = 2;								// bridge-type
-		T_r->at(rec - 1) = 2;									// bridge-type
+		T_r->at(rec - 1) = 2;								// bridge-type
 		L_to_R->at(lig - 1) = rec;	
 
-// update list_bridged_receptors and list_CB
+		// update list_bridged_receptors and list_CB
 		list_bridged_receptors->push_back(rec);
 	}
 
@@ -1300,37 +1274,6 @@ void Make_reaction(MATRIX_DOUBLE *a_d, MATRIX_DOUBLE *a_on, MATRIX_DOUBLE *a_off
 		if(rec != list_bridged_receptors->at(idb))
 			std::cout << "WARNING MKREACT" << "\n";
 		list_bridged_receptors->erase(list_bridged_receptors->begin()+idb); // remove the bridge from index
-
-		/*//  update list_CB
-		int in_the_GCH = 0;
-		int id_GCH = 0;
-		for(int iGCH = 0, end= list_CB->size(); iGCH< end; iGCH++) //check si le pont était un CB
-		{
-			if(list_CB->at(iGCH) == rec)
-			{
-				in_the_GCH = 1;
-				id_GCH = iGCH;
-			}
-		}
-
-		if(in_the_GCH == 1)
-		{
-			if(list_bridged_receptors->size() < 2) // if its the only bridge
-			{
-				list_CB->erase(list_CB->begin()+id_GCH);
-			}
-			else
-			{
-				new_list_CB.clear();
-				new_list_CB = gen_GCH(X_l_x, X_l_y, X_CM_x, X_CM_y, X_CM_theta, L_to_R, X_r_x, X_r_y, list_bridged_receptors, list_CB);
-				list_CB->clear();
-				
-				for(int k = 0, end=new_list_CB.size(); k<end; k++)
-				{
-					list_CB->push_back(new_list_CB[k]);
-				}
-			}
-		}*/
 	}    
 	else
 	{
@@ -1339,10 +1282,7 @@ void Make_reaction(MATRIX_DOUBLE *a_d, MATRIX_DOUBLE *a_on, MATRIX_DOUBLE *a_off
 }
 
 
-
-
-
-//___________________________________________________________________________________________________________________________
+//-----------------------------------------------------------------------------------------------------------------------------
 // DIFFUSION
 
 void diffusion(std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, std::vector<double> *X_CM_theta, std::vector<double> *X_l_x, std::vector<double> *X_l_y, std::vector<double> *X_r_x, std::vector<double> *X_r_y, std::vector<int> *T_l, std::vector<int> *L_to_R, long *idum, double delta_t, double D_II, double D_ortho, double D_rot)
@@ -1357,10 +1297,6 @@ void diffusion(std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, std::ve
 	double DX_Brwn = (-1)*sqrt(2*D_II*delta_t)*sin(old_theta)*random_numbers[0] + sqrt(2*D_ortho*delta_t)*cos(old_theta)*random_numbers[1];
 	double DY_Brwn = sqrt(2*D_II*delta_t)*cos(old_theta)*random_numbers[0] + sqrt(2*D_ortho*delta_t)*sin(old_theta)*random_numbers[1]; 
 	double DTHETA_Brwn = sqrt(2*D_r*delta_t)*random_numbers[2];
-	
-	// DEBUG:
-//	std::cout << "DX_Brwn: " << DX_Brwn << std::endl;
-//	std::cout << "DY_Brwn: " << DY_Brwn << std::endl;
 	
 	// diffuse the Virion
 	X_CM_x->push_back(X_CM_x->at((X_CM_x->size()) -1) + DX_Brwn);
@@ -1394,8 +1330,6 @@ void diffusion(std::vector<double> *X_CM_x, std::vector<double> *X_CM_y, std::ve
 				X_r_y->at(rec) = X_r_y->at(rec) - size;
 			if(X_r_y->at(rec) < -1*size/2)
 				X_r_y->at(rec) = X_r_y->at(rec) + size;
-				
-				
 		}
 	}
 }
@@ -1501,9 +1435,8 @@ void diffusion_loose_receptors(std::vector<double> *X_r_x, std::vector<double> *
 }
 
 
-//___________________________________________________________________________________________________________________________
+// -----------------------------------------------------------------------------------------------------------------------------
 // UPDATE
-
 void UpdateCell_Lists(int Old_Cell, int New_Cell, int ipar, std::vector<int> *ll, std::vector<int> *bl, std::vector<int> *hoc)
 {/* Update the simulation cell lists for the particle "ipar" which changed its cell
 	* ipar: index of the current particle
@@ -1556,7 +1489,6 @@ void Update_Cell_L(std::vector<int> *ll_L, std::vector<int> *bl_L, std::vector<i
 	double theta = X_CM_theta->at(X_CM_theta->size() - 1);
 	double otheta = X_CM_theta_init;
 
-
 	for (int i = 1; i < N_L + 1; i++)
 	{
 				// ligand coord. in virus framce of ref.
@@ -1585,10 +1517,7 @@ void Update_Cell_L(std::vector<int> *ll_L, std::vector<int> *bl_L, std::vector<i
 				{
 					UpdateCell_Lists(oc, nc, i, ll_L, bl_L, hoc_L);
 				}
-			
-		
 	}
-
 }
 
 void Update_Cell_R(std::vector<int> *ll_R, std::vector<int> *bl_R, std::vector<int> *hoc_R, std::vector<double> *X_r_x, std::vector<double> *X_r_y, std::vector<double> *x_init_R, std::vector<double> *y_init_R, int N_x, int N_y, double R_Cell)
@@ -1769,9 +1698,9 @@ void load_receptors(string dir, std::vector<double> *X_r_x, std::vector<double> 
 	} 
     inputFile.close();     // Close the file 
     
-	// skip 'X_r_x = [' (change to 9)
+	// skip 'X_r_x = [' -> index 9 (might have to get changed, depending on save format))
 	x_line= x_line.substr(9, x_line.size()-9-1);
-	y_line= y_line.substr(9, y_line.size()-9-1) ;		// (9 might have to get changed to 8, depending on save format)
+	y_line= y_line.substr(9, y_line.size()-9-1);
 	
 	// push the values to the vectors
 	int x_pos, y_pos = 0;		
@@ -1804,9 +1733,9 @@ void load_SA(string dir, std::vector<int> *T_r){
     string line;
     int pos;
 
-    getline(f_SA, line);	// skip first line (Header)
-	while (getline(f_SA, line)){					//f_SA >> std::ws && 
-		pos= line.find(',');								// substr(pos+1)= index of receptor
+    getline(f_SA, line);						// skip first line (Header)
+	while (getline(f_SA, line)){				//f_SA >> std::ws && 
+		pos= line.find(',');							// substr(pos+1)= index of receptor
 		T_r->at(stoi(line.substr(pos+1))  - 1)=0; 		// adjust type of receptor to "off"/ cleaved
 	} 
     f_SA.close();     // Close the file 
@@ -1880,17 +1809,17 @@ void load_CBs(string dir, std::vector<int> *list_CB){
 int main(int argc, char* argv[])
 { /*
 	* Use in the following format:
-	* ./Run <K_d>  [<Run Iter>]
+	* ./Run <K_d>  [<Run Iter>] 
+	* ("Iter" gets one out of 10 random seeds assigned.)
 	*/
 	std::cout << "Run " << argv[0] << std::endl;
 	
-	long idum;			// the random seed    (has to be <0)
+	long idum;			// the random seed    (has to be < 0)
 	// ------------------------------------ PARSE INPUT --------------------------- --------------------------- --------------------------- --------------------------- 
 	if (argc == 3){
 		std::cout << "1st Input: " << argv[1] << std::endl;
 		k_d= atof(argv[1]);
-		int iter= std::stoi(argv[2]);	//		idum= std::stol(argv[2]);
-		//	if (idum>=0.)	{std::cout << "Random seed has to be negative.\nExiting program."<< std::endl;return 0;}
+		int iter= std::stoi(argv[2]);
 		if (iter==1){idum= -111142451;}
 		else if (iter==2){idum= -211142450;}
 		else if (iter==3){idum= -311190231;}
@@ -1909,14 +1838,14 @@ int main(int argc, char* argv[])
 	}
 	else{
 		std::cout << "Wrong amount of arguments.\n\
-		use Format '/Run <K_off> [<Run Iter>]'.\nExit program."<< std::endl;
+		use Format '/Run <K_d> [<Run Iter>]'.\nExit program."<< std::endl;
 		return 0;}
 	// ------------------------------------ PARSE INPUT --------------------------- --------------------------- --------------------------- --------------------------- 
 	std::cout << "seed du GNPA: " << idum << '\n';
 	std::cout << " ---------------------------------------------- " << std::endl;
     
-	// if no continuation: init type of particle and polarization
-	// if it is continuation: provide path to ligand file and ALL depleted_SA .txt files
+	// If the simulation is no continuation: init type of particle and polarization
+	// if it is a continuation: provide path to ligand file and ALL depleted_SA .txt files
 	bool diffusing_receptors= true;
 	bool continuation=false;
 	string dir_cont= "./";
@@ -1962,22 +1891,20 @@ int main(int argc, char* argv[])
     run_info << "System Size: " << Taille_Systeme << "  R_Verlet: " << R_Verlet << '\n'; //"  Background Receptors: " << N_R << 
     run_info << "k_d: " << k_d << "  k_off: " << k_off << "  k_on: " << k_on<< '\n';
     
-    //____GET REC DENSITY BELOW PARTICLE:
+    // ----- GET REC DENSITY BELOW PARTICLE:
     std::ofstream RecDensity;   
     RecDensity.open ("RecDensity" + annex + ".txt");
 	RecDensity << "step,RecDensity,ActiveDensity" << std::endl;
-    //____
+    // -----
     
-// init variables
-  	int pct = 0;		// percentage, to print progress of code
-
+	// init variables
 	std::vector<double> a_d_tot;
 	std::vector<double> a_on_tot;
 	std::vector<double> a_off_tot;
 
 	std::vector<double> affinity;
 
-// Lists to access the Ligands/Receptors in each simulation Cell
+	// Lists to access the Ligands/Receptors in each simulation Cell
 	MATRIX_INT v_L;
 	std::vector<int> ll_L;
 	std::vector<int> bl_L;
@@ -1994,16 +1921,16 @@ int main(int argc, char* argv[])
 
 	MATRIX_INT Neigh;
 
-// X_l: coordinates of the Ligands on the Virium (virial frame of reference)
+	// X_l: coordinates of the Ligands on the Virium (virial frame of reference)
 	std::vector<double> X_l_x;  
 	std::vector<double> X_l_y;
 	
-// X_CM: coordinates of the Ligands in the lab frame of reference 
+	// X_CM: coordinates of the Ligands in the lab frame of reference 
 	std::vector<double> X_CM_x; 
 	std::vector<double> X_CM_y;
 	std::vector<double> X_CM_theta; // orientation of the virium (angle between x axes?)
 	
-// X_r: coordinates of the Receptors (SA) on the cell (Labframe of ref.)
+	// X_r: coordinates of the Receptors (SA) on the cell (Labframe of ref.)
 	std::vector<double> X_r_x;
 	std::vector<double> X_r_y; 
 	
@@ -2016,7 +1943,7 @@ int main(int argc, char* argv[])
 										* 		depleted_SA.txt : [500, 503, 520, ....] -> T_r[499]= 0, T_r[502]= 0, T_r[519]= 0
 										*/
 	
-	std::vector<int> L_to_R; // notes for each ligand the index of the bonded receptor, "-1" when unbound
+	std::vector<int> L_to_R; 					// lists for each ligand the index of the bonded receptor, "-1" when unbound
 	std::vector<int> list_bridged_receptors;	// lists the indexes of all receptors which currently forming a bridge
 	std::vector<int> list_CB;					// the indexes of all constraining bridges (indexes of the involved receptors)
 	
@@ -2029,18 +1956,17 @@ int main(int argc, char* argv[])
     std::vector<int> bridge_vect;
     bridge_vect.push_back(0.0);
 
-//_________________________________________________________________________________________________________________
-//INITIALIZE:
-//_____________________________________________________________________
-//_____________________________________________________________________		
+	// ----------------------------------------------------------------------------------------------
+	//  --------------------------------- INITIALIZE: -----------------------------------------------
+	// ----------------------------------------------------------------------------------------------
 	if (!continuation){
 		// ________
 		// IAV: initialize Ligand grid on IAV
-		//initialize_IAV(&X_l_x, &X_l_y, &T_l, &L_to_R, &idum);			// Bacilla Virus
-		//	initialize_sphericalIAV(&X_l_x, &X_l_y, &T_l, &L_to_R, &idum, true);	// Spherical clustered
-//		initialize_sphericalIAV(&X_l_x, &X_l_y, &T_l, &L_to_R, &idum, false);	// Spherical unclustered
+		// initialize_IAV(&X_l_x, &X_l_y, &T_l, &L_to_R, &idum);			// Bacilla Virus
+		// initialize_sphericalIAV(&X_l_x, &X_l_y, &T_l, &L_to_R, &idum, true);	// Spherical clustered
+		// initialize_sphericalIAV(&X_l_x, &X_l_y, &T_l, &L_to_R, &idum, false);	// Spherical unclustered
 
-		// GET specific Ligand grid
+		// Load given Ligand grid
 		string f= "./ligands_equally.xyz";
 		load_ligands(dir_cont, &X_l_x, &X_l_y, &T_l, f);
 		
@@ -2050,7 +1976,7 @@ int main(int argc, char* argv[])
 		// ________
 		// SA: Initialize Receptors (random distr. on a squared grid + clusters[if indicated])
 		initialize_SA(&X_r_x, &X_r_y, &T_r, &idum, false);	// not clustered
-		//initialize_SA(&X_r_x, &X_r_y, &T_r, &idum, true);	// clustered
+		// initialize_SA(&X_r_x, &X_r_y, &T_r, &idum, true);	// clustered
 		
 		//_________
 		// Init CM:
@@ -2058,14 +1984,13 @@ int main(int argc, char* argv[])
 		X_CM_y.push_back(0.0);
 		X_CM_theta.push_back(0.0);
 	}
-	else{		
+	else{// We Continue a Stopped simulation
 		// IAV: initialize Ligand grid on IAV
 		string f= "ligands.xyz";
 		load_ligands(dir_cont, &X_l_x, &X_l_y, &T_l, f);
 		
 		// SA: Initialize Receptors
 		load_receptors(dir_cont, &X_r_x, &X_r_y);
-		
 		
 		// init T_r vector with 1s ("active"/not cleaved)
 		for (int j = 0, end= N_R; j < end; j++)
@@ -2082,13 +2007,10 @@ int main(int argc, char* argv[])
 		X_CM_y.push_back(old_CM[2]);
 		X_CM_theta.push_back(old_CM[3]);
 }
-//_____________________________________________________________________
-//_____________________________________________________________________	
-
+	// ----------------------------------------------------------------------------------------------
 
    	int N_L = X_l_x.size();		// Number of Ligands
-
-// print initial receptors
+	// print initial receptors
 	receptor << "X_r_x = [";
 	for(int i = 0, end= X_r_x.size(); i<end; i++)
 		{receptor << X_r_x[i] << ',';}
@@ -2127,22 +2049,22 @@ int main(int argc, char* argv[])
 
 
     
-// SETUP SYSTEM-GRID
-// Divide System in Cells of size R_verlet
+	// SETUP SYSTEM-GRID
+	// Divide System in Cells of size R_verlet
 	N_x = int(Taille_Systeme/R_Verlet); //D->R_Verlet
 	N_y = N_x;
 	N_Cell = N_x*N_y;
 
 	R_Cell = Taille_Systeme/N_x;	//= R_verlet
 
-// create a neighbour list
+	// create a neighbour list
 	Neigh = Set_Neigh(N_Cell, N_x, N_y);
 
-// INIT LL,BL,HOC:
-// lists the elements present in the simulation cells. hoc assigns each sim.cell the last
-// element, ll[and bl] allows to access the rest
-// The Ligands:
-// The Ligands (we need ligands in the labframe of reference):
+	// INIT LL,BL,HOC:
+	// lists the elements present in the simulation cells. hoc assigns each sim.cell the last
+	// element, ll[and bl] allows to access the rest
+	// The Ligands:
+	// The Ligands (we need ligands in the labframe of reference):
 	std::vector<double> x_h;
 	std::vector<double> y_h;
 	double th;
@@ -2154,52 +2076,47 @@ int main(int argc, char* argv[])
 		y_h.push_back((X_l_x[alpha])*sin(th) + (X_l_y[alpha])*cos(th) + X_CM_y[X_CM_y.size() - 1]);
 	}
 	v_L = Init_CellLists(R_Cell, N_Cell, N_L, N_x, N_y, &x_h, &y_h);
-	//v_L = Init_CellLists(R_Cell, N_Cell, N_L, N_x, N_y, &X_l_x, &X_l_y);			// old version with ligand frame of reference
+
 	x_h.clear();
 	y_h.clear();
 	
 	ll_L = v_L[0];
 	bl_L = v_L[1];
 	hoc_L = v_L[2];
-// The Receptors
+	// The Receptors
 	v_R = Init_CellLists(R_Cell, N_Cell, N_R, N_x, N_y, &X_r_x, &X_r_y);
 	ll_R = v_R[0];
 	bl_R = v_R[1];
 	hoc_R = v_R[2];
 
-// Initialize L_R and R_L
+	// Initialize Verlet Lists: L_R and R_L
 	Initialize_L_R(&L_R, &X_l_x, &X_l_y, X_r_x, X_r_y, X_CM_x, X_CM_y, X_CM_theta, Neigh, hoc_R, ll_R, T_l, L_to_R, N_x, N_y, R_Cell, N_L, 0);
 	Initialize_R_L(&R_L, &X_l_x, &X_l_y, X_r_x, X_r_y, X_CM_x, X_CM_y, X_CM_theta, Neigh, hoc_L, ll_L, T_r, T_l, L_to_R, N_x, N_y, R_Cell, N_L, 0); 
 	
-//_____________________________________________________________________
-//_____________________________________________________________________	
+	//_____________________________________________________________________
+	//_____________________________________________________________________	
 	if (continuation){
 		// get L_to_R:
 		load_bridges(dir_cont, &L_to_R, &T_l, &T_r);
 		// get bridges_list:
 		list_bridged_receptors.clear();
-    	list_bridged_receptors = Get_bridges(&T_l, &L_to_R);				// Could also be done directly in load_bridges
+    	list_bridged_receptors = Get_bridges(&T_l, &L_to_R);
     	std::cout <<"\n\n\n" << std::endl;
-    	
 	}
-//_____________________________________________________________________
-//_____________________________________________________________________	
+	//_____________________________________________________________________
+	//___________________________________________________________________	
 
-
-// Initialize affinities (for each ligand there is a list of affinities for all receptors in verlet range)
+	// Initialize affinities (for each ligand there is a list of affinities for all receptors in verlet range)
 	Initialize_Affinity(&a_d, &L_R, &X_CM_x, &X_CM_y, &X_CM_theta, &X_l_x, &X_l_y, &X_r_x, &X_r_y, &L_to_R, T_l, T_r, k_d, N_L, 0, 1);
 	Initialize_Affinity(&a_on, &L_R, &X_CM_x, &X_CM_y, &X_CM_theta, &X_l_x, &X_l_y, &X_r_x, &X_r_y, &L_to_R, T_l, T_r, k_on, N_L, 1, 1);
     Initialize_Affinity(&a_off, &L_R, &X_CM_x, &X_CM_y, &X_CM_theta, &X_l_x, &X_l_y, &X_r_x, &X_r_y, &L_to_R, T_l, T_r, k_off, N_L, 2, 2);
 
-// get affinity vectors (a_tot for each vector)
+	// get affinity vectors (a_tot for each vector)
     a_d_tot = Get_a_X_tot(&a_d, N_L);
 	a_on_tot = Get_a_X_tot(&a_on, N_L);
 	a_off_tot = Get_a_X_tot(&a_off, N_L);
-// a_tot to choose the type of reaction	
+	// a_tot to choose the type of reaction	
 	affinity = Get_a_tot(&a_d_tot, &a_on_tot, &a_off_tot, N_L);
-
-	// For Continuation:  Can I keep 0 entry of all init vectors =0? Or should I adapt for continuation,
-	// Seems to make no difference
 
 	// Init Diffusion variables (Necessary to calculate maximum displacement for 
 	// ligands and receptors to check whether its necessary to update the Cell lists)
@@ -2209,7 +2126,7 @@ int main(int argc, char* argv[])
   	std::vector<double> x_init_L;		// ligands before time step
   	std::vector<double> y_init_L;
   	double max_L = 0.0;
-  	for(int w=0; w<N_L;w++) // is this necessary?
+  	for(int w=0; w<N_L;w++)
   	{
   		x_init_L.push_back(0.0);
   		y_init_L.push_back(0.0);
@@ -2218,14 +2135,10 @@ int main(int argc, char* argv[])
   		displacement_L.push_back(0.0);
   	}
 
-
 	double X_CM_x_init = X_CM_x[X_CM_x.size() - 1];
 	double X_CM_y_init = X_CM_y[X_CM_y.size() - 1];
 	double X_CM_theta_init = X_CM_theta[X_CM_theta.size() - 1];
 	
-// 	double X_CM_x_init = 0.0;
-// 	double X_CM_y_init = 0.0;
-// 	double X_CM_theta_init = 0.0;
   	double theta;
 
   	std::vector<double> displacement_R;
@@ -2233,7 +2146,7 @@ int main(int argc, char* argv[])
   	std::vector<double> x_init_R;			// receptors before time step
   	std::vector<double> y_init_R;
   	double max_R = 0.0;
-  	for(int w=0; w<N_R;w++) // is this necessary
+  	for(int w=0; w<N_R;w++)
   	{
   		x_init_R.push_back(0.0);
   		y_init_R.push_back(0.0);
@@ -2259,8 +2172,8 @@ int main(int argc, char* argv[])
 	
 	// Detachment Conditions
 	int tau_threshold= 50;		// micro s| if the particle takes longer to attach, we stop the sim 
-	bool Attached= 0; 		// flag that shows whether the particle is already attached to the cell surface
-	bool Detached= 0;		// flag that shows whether the particle detached from the cell surface (after attaching), condition for exiting the 
+	bool Attached= 0; 			// flag that shows whether the particle is already attached to the cell surface
+	bool Detached= 0;			// flag that shows whether the particle detached from the cell surface (after attaching), condition for exiting the 
 	int time_detach, time_attach, current_time;
 	int total_reaction=0;
 
@@ -2271,13 +2184,15 @@ int main(int argc, char* argv[])
 
 	run_info << "\nInitialized everything (IAV, Receptors, Neighbourlist, etc.) in  " << double( clock() - startTime ) / (double)CLOCKS_PER_SEC<< " seconds.";
 	run_info.flush();
-// Begin Sim:
+	// ----------------------------------------------------------------------------------------------
+	// ------------------------ START SIM: ----------------------------------------------------------
+	// ----------------------------------------------------------------------------------------------
     for (int step_i = 1; step_i < N_dT + 1; ++step_i){
 		time_tot = 0.0;
 		int count_react= 0;
 		current_time= time_cont + (step_i * (DT * 1e6)); 		// current time in µs
-//___________________________________________________________________________________________________________________________
-//REACTIONS: list/perform reactions of one time step, get constraining bridges
+		//___________________________________________________________________________________________________________________________
+		// REACTIONS: list/perform reactions of one time step, get constraining bridges
 		while(time_tot < DT){
     		int r = Choose(affinity, &idum); // choose reaction, r: 1= destroy SA, 2= forming a bridge, 3= breaking a bridge
     	    time_react = Get_time_reaction(affinity[0], &idum);
@@ -2328,8 +2243,8 @@ int main(int argc, char* argv[])
 		double D_II, D_ortho, D_rot;
 		// UPDATE the DIFFUSION CONSTANTS:
 		if (Attached){
-			D_II= D_sphere/N_b;			// D_parallel/N_b;
-			D_ortho= D_sphere/N_b;		// D_orthogonal/N_b;
+			D_II= D_sphere/N_b;				// D_parallel/N_b;
+			D_ortho= D_sphere/N_b;			// D_orthogonal/N_b;
 			D_rot= D_r/N_b;					// D_THETA/N_b;	
 		} else //avoid division by 0 bridges 
 			{D_II= D_sphere, D_ortho= D_sphere, D_rot= D_r;}
@@ -2359,7 +2274,6 @@ int main(int argc, char* argv[])
 			// diffuse the unbound receptors
 			diffusion_loose_receptors(&X_r_x, &X_r_y, &list_bridged_receptors, &idum, DT);
 		}
-	// ?? strange, what happened here before?
 		if(X_CM_x[X_CM_x.size()-1] != X_CM_x[X_CM_x.size()-1])
 			{std::cout << "\n\n Something is wrong. We should not enter here! I" 
 			<< " \n Step= " << step_i << "t= " << current_time << " µs , X_CM_x[X_CM_x.size()-1]= " << X_CM_x[X_CM_x.size()-1] << std::endl; return 0;}
@@ -2371,8 +2285,8 @@ int main(int argc, char* argv[])
 			<< " \n Step= " << step_i << "t= " << current_time << " µs , X_CM_theta[X_CM_theta.size()-1]= " << X_CM_theta[X_CM_theta.size()-1] << std::endl; return 0;}
 
 
-//___________________________________________________________________________________________________________________________		
-//UPDATES:			
+		//___________________________________________________________________________________________________________________________		
+		//UPDATES:			
 		new_rCM.clear();
 
 		// check breakage after receptor diffusion
@@ -2384,7 +2298,6 @@ int main(int argc, char* argv[])
 			std::cout << "x_CM = [" << X_CM_x[X_CM_x.size()-1] << "," << X_CM_y[X_CM_y.size()-1] << "]" << "\n";
 			return 0;
 		}
-
 
 		// get the displacements of the Ligands...
 		for(int w=0; w < N_L; w++)
@@ -2406,7 +2319,7 @@ int main(int argc, char* argv[])
 		max_L = sqrt(*max_element(displacement_L.begin(), displacement_L.end()));
 		max_R = sqrt(*max_element(displacement_close_R.begin(), displacement_close_R.end()));
 
-// if it is possible that something entered/exited a verlet list
+		// if it is possible that something entered/exited a verlet list
 		if(max_R + max_L > R_Verlet - D) 
 	    {// update the Cells and Verlet-lists
 
@@ -2414,7 +2327,7 @@ int main(int argc, char* argv[])
 	    	Update_Cell_R(&ll_R, &bl_R, &hoc_R, &X_r_x, &X_r_y, &x_init_R, &y_init_R, N_x, N_y, R_Cell);
 			Reinitialize_Lists(&L_R, &R_L, &a_d, &a_on, &a_off, &a_d_tot, &a_on_tot, &a_off_tot, &affinity, Neigh, hoc_R, hoc_L, ll_L, ll_R, X_l_x, X_l_y, X_r_x, X_r_y, X_CM_x, X_CM_y, X_CM_theta, N_x, N_y, R_Cell, N_L, T_l, T_r, &L_to_R, step_i);
 
-// get new init_L, init_R and X_CM_init
+			// get new init_L, init_R and X_CM_init
 			for(int w=0; w < N_L; w++)
 			{	
 				x_init_L[w] = x_L[w];
@@ -2433,13 +2346,12 @@ int main(int argc, char* argv[])
 	    	displacement_close_R.clear();	    
 	    }
 
-// update the affinities
+		// update the affinities
     	else
     	{Reinitiliazise_Affinity(&a_on, &a_off, &a_d, &a_d_tot, &a_on_tot, &a_off_tot, &affinity, &L_R, &X_CM_x, &X_CM_y, &X_CM_theta, &X_l_x, &X_l_y, &X_r_x, &X_r_y, &L_to_R, T_l, T_r, N_L);}
 
-    	//PRINTS
-//		if((step_i) % (N_dT /200) == 0) // get 200 trajectory frames
-//	    if((step_i) % (10) == 0)			// OLD, every 10 ms
+    	// -------- ---- PRINTS --- -------
+		// if((step_i) % (N_dT /200) == 0)  // get 200 trajectory frames
 		if((current_time) % (10) == 0)		// every 10 µs
 		{ // ovito compliant (xyz)
 	    	trajectory << current_time << ','  << X_CM_x.at(X_CM_x.size() - 1) << "," << X_CM_y.at(X_CM_y.size() - 1) << "," << X_CM_theta.at(X_CM_theta.size() - 1) << "," << bridge_vect.at(bridge_vect.size() - 1) << '\n';
@@ -2459,7 +2371,6 @@ int main(int argc, char* argv[])
 				{bl << list_bridged_receptors[k] << ",";}
 		    bl << '\n';
 
-
 		    for(int k = 0, end=L_to_R.size(); k<end; k++)
 				{ltr << L_to_R[k] << ",";}
 		    ltr << '\n';
@@ -2477,10 +2388,6 @@ int main(int argc, char* argv[])
 		    bl.flush();
 		    ltr.flush();
 	    }
-	    // progress
-		// if((step_i+1) % (N_dT /100) == 0)	
-		//			{std::cout << "\n----------------------------------------------------------------------------------------------\n" 
-		// std::cout << pct << " %" << '\n' <<std::flush; pct += 1;}	
 	}
 	// -----------------------------------------------------------------------------------------------
 	// SIMULATION FINISHED/ STOPPED
@@ -2513,7 +2420,6 @@ int main(int argc, char* argv[])
 	run_info.close();
 
 
-
 	// get Mean number of bridges
 	// int num_sim_steps= sim_end_time - time_cont /(DT*1e6);
 	int num_sim_steps=bridge_vect.size();
@@ -2527,8 +2433,7 @@ int main(int argc, char* argv[])
 	outfile << atof(argv[1])<< ',' << (mean_Nbr)<< ',' << (sim_end_time) << ',' << (time_attach) << std::endl; 
 	outfile.close();
 
-	// ------------------- Lets see if this works -------------------						
-	// write RecDensity File:
+	// -------------------  write RecDensity File -------------------						
 	int close_Rec= 0;
 	int closeActive_Rec= 0; 
 	for (int w=0; w < N_R; w++){// Count the receptors "close" to the Virion
